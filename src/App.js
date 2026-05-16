@@ -115,9 +115,24 @@ export default function App() {
     setEventData({ ...eventData, selectedBallIds: newIds });
   };
 
-  const handleUpdateBallDate = (id, newDate) => {
-    setBalls(balls.map(ball => ball.id === id ? { ...ball, validDate: newDate } : ball));
+  const handleUpdateBall = (id, field, value) => {
+    setBalls(balls.map(ball => ball.id === id ? { ...ball, [field]: value } : ball));
   };
+
+  // タブ切り替え時にスマートフォンのピンチズームを制御
+  useEffect(() => {
+    let viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (!viewportMeta) {
+      viewportMeta = document.createElement('meta');
+      viewportMeta.name = 'viewport';
+      document.head.appendChild(viewportMeta);
+    }
+    if (activeTab === 'preview') {
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
+    } else {
+      viewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+    }
+  }, [activeTab]);
 
   const renderDate = (dateStr) => {
     if(!dateStr) return null;
@@ -470,17 +485,23 @@ export default function App() {
                     if (expiredDate < today) isExpired = true;
                   }
                   return (
-                    <div key={ball.id} className="flex items-center justify-between p-2 border rounded bg-white">
-                      <div className="flex-grow">
-                        <div className="font-bold">{ball.maker ? `${ball.maker} - ` : ''}{ball.name}</div>
-                        <div className="text-xs text-gray-500 mb-1">ボールNo.: {ball.serialNo}</div>
+                    <div key={ball.id} className="flex items-start justify-between p-3 border rounded bg-white gap-2">
+                      <div className="flex-grow space-y-2">
+                        <div className="flex gap-2">
+                          <input list="maker-list" type="text" value={ball.maker || ''} onChange={(e) => handleUpdateBall(ball.id, 'maker', e.target.value)} className="w-1/3 border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="メーカー" />
+                          <input type="text" value={ball.name} onChange={(e) => handleUpdateBall(ball.id, 'name', e.target.value)} className="w-2/3 border rounded p-1 text-sm font-bold bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボール名" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-500 whitespace-nowrap">No.:</span>
+                          <input type="text" value={ball.serialNo} onChange={(e) => handleUpdateBall(ball.id, 'serialNo', e.target.value)} className="flex-grow border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボールNo." />
+                        </div>
                         <div className="flex items-center text-xs">
-                          <span className="text-gray-500 mr-2">有効期限開始日:</span>
-                          <input type="date" value={ball.validDate} onChange={(e) => handleUpdateBallDate(ball.id, e.target.value)} className="border rounded px-1 py-0.5 mr-2 bg-gray-50" />
+                          <span className="text-gray-500 mr-2 whitespace-nowrap">期限開始日:</span>
+                          <input type="date" value={ball.validDate} onChange={(e) => handleUpdateBall(ball.id, 'validDate', e.target.value)} className="border rounded px-1 py-0.5 mr-2 bg-gray-50 focus:bg-white focus:ring-1" />
                           {isExpired && <span className="text-red-500 font-bold">期限切れ</span>}
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteBall(ball.id)} className="text-red-500 p-2 hover:bg-red-50 rounded shrink-0 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                      <button onClick={() => handleDeleteBall(ball.id)} className="text-red-500 p-2 hover:bg-red-50 rounded shrink-0 transition-colors mt-2"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   );
                 })}
