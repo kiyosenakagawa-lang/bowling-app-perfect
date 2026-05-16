@@ -81,13 +81,13 @@ export default function App() {
   const [message, setMessage] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1); // ズーム倍率の状態
 
-  // ブラウザ検知
+  // ブラウザ検知と初期ズーム設定
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
     const isInApp = /line|fbav|facebook|instagram|twitter|twitter|micromessenger/i.test(ua);
     setIsInAppBrowser(isInApp);
 
-    // 画面幅が小さい場合（スマホなど）、初期表示を縮小して全体を見えやすくする
+    // スマホ等で画面幅が小さい場合、初期ズームを50%にする
     if (window.innerWidth < 800) {
       setZoomLevel(0.5);
     }
@@ -334,7 +334,7 @@ export default function App() {
         }
 
         .outer-border {
-          border: 1px solid #000 !important;
+          border: 1.5px solid #000 !important;
           border-collapse: collapse !important;
         }
 
@@ -343,6 +343,7 @@ export default function App() {
           vertical-align: middle !important;
           text-align: center;
           border: 1px solid #000 !important;
+          background-clip: padding-box; /* 罫線の上に背景色が重ならないようにする */
         }
 
         table {
@@ -477,7 +478,7 @@ export default function App() {
                 </div>
               </form>
               {/* 高さ制限を解除し、追加したボールがすべて下に表示されるように修正 */}
-              <div className="space-y-2 h-auto overflow-visible">
+              <div className="space-y-2 overflow-visible pb-4">
                 {balls.map(ball => {
                   let isExpired = false;
                   if (ball.validDate) {
