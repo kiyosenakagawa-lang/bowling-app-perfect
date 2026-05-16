@@ -216,8 +216,62 @@ export default function App() {
           allowTaint: true,
           onclone: (clonedDoc) => {
             const clonedContent = clonedDoc.getElementById('pdf-content');
-            const cells = clonedContent.querySelectorAll('.cell-content');
-            cells.forEach(cell => {
+
+            // --- 印刷時の線の重なり（太くなる問題）を完全に防ぐ処理 ---
+            const tables = clonedContent.querySelectorAll('table');
+            tables.forEach(table => {
+              table.style.setProperty('border-collapse', 'separate', 'important');
+              table.style.setProperty('border-spacing', '0', 'important');
+              table.style.setProperty('border', 'none', 'important');
+            });
+
+            // 全セルの内枠線を大会名下線と同じ太さ（1px）にする。重なりを防ぐため右と下だけ引く
+            const allCells = clonedContent.querySelectorAll('td, th');
+            allCells.forEach(cell => {
+              cell.style.setProperty('border-top', 'none', 'important');
+              cell.style.setProperty('border-left', 'none', 'important');
+              cell.style.setProperty('border-right', '1px solid #000', 'important');
+              cell.style.setProperty('border-bottom', '1px solid #000', 'important');
+            });
+            
+            // 外枠があるテーブルに対する処理
+            const borderTables = clonedContent.querySelectorAll('.outer-border, .thin-border-table');
+            borderTables.forEach(table => {
+              const isOuter = table.classList.contains('outer-border');
+              if (isOuter) {
+                table.style.setProperty('border-top', '1.5px solid #000', 'important');
+                table.style.setProperty('border-left', '1.5px solid #000', 'important');
+                table.style.setProperty('border-bottom', '1.5px solid #000', 'important');
+                table.style.setProperty('border-right', '1.5px solid #000', 'important');
+              } else {
+                // 細い枠線のテーブルは、右と下の線をセルの線に任せることで重なり(太くなる現象)を防ぐ
+                table.style.setProperty('border-top', '1px solid #000', 'important');
+                table.style.setProperty('border-left', '1px solid #000', 'important');
+                table.style.setProperty('border-bottom', 'none', 'important');
+                table.style.setProperty('border-right', 'none', 'important');
+              }
+
+              const rows = table.querySelectorAll('tr');
+              if (rows.length > 0) {
+                if (isOuter) {
+                  // セルの右・下の線が、テーブル全体の枠線と重ならないように消す
+                  rows.forEach(row => {
+                    const cells = row.children;
+                    if (cells.length > 0) {
+                      cells[cells.length - 1].style.setProperty('border-right', 'none', 'important');
+                    }
+                  });
+                  const lastRowCells = rows[rows.length - 1].children;
+                  Array.from(lastRowCells).forEach(cell => {
+                    cell.style.setProperty('border-bottom', 'none', 'important');
+                  });
+                }
+              }
+            });
+            // -----------------------------------------------------------
+
+            const cellsContent = clonedContent.querySelectorAll('.cell-content');
+            cellsContent.forEach(cell => {
               cell.style.transform = 'translateY(-5.5px)'; 
             });
             const spans = clonedContent.querySelectorAll('span');
@@ -230,6 +284,13 @@ export default function App() {
             if (tournamentNameText) {
               tournamentNameText.style.transform = 'translateY(-6px)';
             }
+
+            // 注意書きと矢印のコンテナを上にずらしてプレビューと同じ高さに合わせる
+            const noticeContainer = clonedContent.querySelector('.notice-container');
+            if (noticeContainer) {
+              noticeContainer.style.transform = 'translateY(-6px)';
+            }
+
             const selects = clonedDoc.querySelectorAll('select');
             selects.forEach(select => {
               const text = select.options[select.selectedIndex].text;
@@ -335,6 +396,12 @@ export default function App() {
 
         .outer-border {
           border: 1.5px solid #000 !important;
+          border-collapse: collapse !important;
+        }
+
+        /* 外線も内線も細いテーブル用 */
+        .thin-border-table {
+          border: 1px solid #000 !important;
           border-collapse: collapse !important;
         }
 
@@ -477,7 +544,6 @@ export default function App() {
                   <button type="submit" className="w-full bg-[#1f4e79] text-white font-bold py-2 rounded flex items-center justify-center hover:bg-blue-900 transition-colors"><Plus className="w-4 h-4 mr-1" /> ボールをリストに追加</button>
                 </div>
               </form>
-              {/* 高さ制限を解除し、追加したボールがすべて下に表示されるように修正 */}
               <div className="space-y-2 overflow-visible pb-4">
                 {balls.map(ball => {
                   let isExpired = false;
@@ -532,7 +598,6 @@ export default function App() {
           </div>
           
           <div className="overflow-x-auto w-full bg-gray-300 p-2 sm:p-8 rounded-xl shadow-inner print:p-0 print:bg-white print:overflow-visible print:shadow-none">
-            {/* スマホのSafari等でのレイアウト崩れを防ぐため、CSSのzoomではなくtransform: scaleを使用 */}
             <div className="w-max mx-auto print:w-full">
               <div 
                 style={{ 
@@ -630,24 +695,25 @@ export default function App() {
                       </tbody>
                     </table>
 
-                    <div className="flex text-[11px] mb-2 mt-0.5 w-full items-end h-[20px]">
-                      <div className="flex-grow text-right relative z-10 bg-white leading-none pr-1">
+                    {/* 注意書きと矢印をFlexboxとパディングで構築し、印刷時のズレを防止 */}
+                    <div className="flex text-[11px] mb-2 mt-1 w-full items-end h-[16px] notice-container">
+                      <div className="flex-grow text-right relative z-10 bg-white leading-none pr-1 pb-[1px]">
                         選手自身で非適合ボールリスト未掲載であることを確認し、☑を付けてください。
                       </div>
-                      <div className="w-[6%] relative h-full">
-                        <div className="absolute w-[200px] h-[8px] border-b-[1.5px] border-r-[1.5px] border-black right-1/2 bottom-[2px]"></div>
-                        <div className="absolute w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-black right-[calc(50%-4px)] bottom-[10px]"></div>
+                      <div className="w-[6%] relative h-full shrink-0">
+                        <div className="absolute w-[200px] h-[8px] border-b-[1.5px] border-r-[1.5px] border-black right-1/2 bottom-[0px] z-0"></div>
+                        <div className="absolute w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-black right-[calc(50%-4px)] bottom-[8px] z-0"></div>
                       </div>
-                      <div className="w-[6%]"></div>
+                      <div className="w-[6%] shrink-0"></div>
                     </div>
 
                     <div className="flex text-[8px] mt-1 mb-12 w-full items-stretch h-[25px]">
                       <div className="w-[3%]"></div>
-                      <div className="w-[20%]"><table className="outer-border w-full h-full table-fixed"><tbody><tr><td className="p-0 w-1/2 bg-gray-50/10"><div className="cell-content text-[8px]">合計個数</div></td><td className="p-0 w-1/2"><div className="cell-content text-[11px] gothic">{selectedCount || '0'}</div></td></tr></tbody></table></div>
+                      <div className="w-[20%]"><table className="thin-border-table w-full h-full table-fixed"><tbody><tr><td className="p-0 w-1/2 bg-gray-50/10"><div className="cell-content text-[8px]">合計個数</div></td><td className="p-0 w-1/2"><div className="cell-content text-[11px] gothic">{selectedCount || '0'}</div></td></tr></tbody></table></div>
                       <div className="w-[15%]"></div>
-                      <div className="w-[20%]"><table className="outer-border w-full h-full table-fixed"><tbody><tr><td className="p-0 w-[45%] bg-gray-50/10"><div className="cell-content text-[8px]">合計金額</div></td><td className="p-0 w-[55%] text-center"><div className="cell-content gothic text-[11px]">{totalFee ? totalFee.toLocaleString() : ''}</div></td></tr></tbody></table></div>
+                      <div className="w-[20%]"><table className="thin-border-table w-full h-full table-fixed"><tbody><tr><td className="p-0 w-[45%] bg-gray-50/10"><div className="cell-content text-[8px]">合計金額</div></td><td className="p-0 w-[55%] text-center"><div className="cell-content gothic text-[11px]">{totalFee ? totalFee.toLocaleString() : ''}</div></td></tr></tbody></table></div>
                       <div className="w-[6%]"></div>
-                      <div className="w-[36%]"><table className="outer-border w-full h-full table-fixed"><tbody><tr><td className="p-0 w-[40%] bg-gray-50/10"><div className="cell-content text-[8px] whitespace-nowrap px-1">登録受付担当者名</div></td><td className="p-0 w-[60%] bg-white"></td></tr></tbody></table></div>
+                      <div className="w-[36%]"><table className="thin-border-table w-full h-full table-fixed"><tbody><tr><td className="p-0 w-[40%] bg-gray-50/10"><div className="cell-content text-[8px] whitespace-nowrap px-1">登録受付担当者名</div></td><td className="p-0 w-[60%] bg-white"></td></tr></tbody></table></div>
                     </div>
 
                     <table className="outer-border w-full text-center text-[12px] mb-6 table-fixed">
