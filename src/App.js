@@ -556,21 +556,28 @@ export default function App() {
                   return (
                     <div key={ball.id} className="flex items-start justify-between p-3 border rounded bg-white gap-2">
                       <div className="flex-grow space-y-2">
-                        <div className="flex gap-2">
-                          <input list="maker-list" type="text" value={ball.maker || ''} onChange={(e) => handleUpdateBall(ball.id, 'maker', e.target.value)} className="w-1/3 border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="メーカー" />
-                          <input type="text" value={ball.name} onChange={(e) => handleUpdateBall(ball.id, 'name', e.target.value)} className="w-2/3 border rounded p-1 text-sm font-bold bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボール名" />
+                        {/* 1行目: ボール名 */}
+                        <div>
+                          <input type="text" value={ball.name} onChange={(e) => handleUpdateBall(ball.id, 'name', e.target.value)} className="w-full border rounded p-1.5 text-sm font-bold bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボール名" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 whitespace-nowrap">No.:</span>
-                          <input type="text" value={ball.serialNo} onChange={(e) => handleUpdateBall(ball.id, 'serialNo', e.target.value)} className="flex-grow border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボールNo." />
+                        {/* 2行目: メーカー名 */}
+                        <div>
+                          <input list="maker-list" type="text" value={ball.maker || ''} onChange={(e) => handleUpdateBall(ball.id, 'maker', e.target.value)} className="w-full border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="メーカー" />
                         </div>
-                        <div className="flex items-center text-xs">
-                          <span className="text-gray-500 mr-2 whitespace-nowrap">期限開始日:</span>
-                          <input type="date" value={ball.validDate} onChange={(e) => handleUpdateBall(ball.id, 'validDate', e.target.value)} className="border rounded px-1 py-0.5 mr-2 bg-gray-50 focus:bg-white focus:ring-1" />
-                          {isExpired && <span className="text-red-500 font-bold">期限切れ</span>}
+                        {/* 3行目: No. と 期限開始日 */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <div className="flex items-center flex-grow min-w-[120px]">
+                            <span className="text-xs text-gray-500 whitespace-nowrap mr-1">No.:</span>
+                            <input type="text" value={ball.serialNo} onChange={(e) => handleUpdateBall(ball.id, 'serialNo', e.target.value)} className="w-full border rounded p-1 text-sm bg-gray-50 font-meiryo focus:bg-white focus:ring-1" placeholder="ボールNo." />
+                          </div>
+                          <div className="flex items-center shrink-0">
+                            <span className="text-xs text-gray-500 mr-1 whitespace-nowrap">期限開始日:</span>
+                            <input type="date" value={ball.validDate} onChange={(e) => handleUpdateBall(ball.id, 'validDate', e.target.value)} className="border rounded px-1 py-0.5 bg-gray-50 focus:bg-white focus:ring-1 text-xs" />
+                            {isExpired && <span className="text-xs text-red-500 font-bold ml-1">期限切れ</span>}
+                          </div>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteBall(ball.id)} className="text-red-500 p-2 hover:bg-red-50 rounded shrink-0 transition-colors mt-2"><Trash2 className="w-5 h-5" /></button>
+                      <button onClick={() => handleDeleteBall(ball.id)} className="text-red-500 p-2 hover:bg-red-50 rounded shrink-0 transition-colors"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   );
                 })}
