@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Printer, Download, Plus, Trash2, Edit, Loader2, AlertTriangle } from 'lucide-react';
+import { FileText, Printer, Download, Plus, Trash2, Edit, Loader2, ExternalLink, AlertTriangle } from 'lucide-react';
 
+// カスタムフック: ローカルストレージでのデータ保存
 function useLocalStorage(key, initialValue) {
   const [storedValue, setStoredValue] = useState(() => {
     try {
@@ -48,6 +49,15 @@ const PREFECTURES = [
   "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県", "全日本学生"
 ];
 
+const MAKERS = [
+  "900 Global", "ABS", "Brunswick", "Columbia 300", "Denver Bowling", "DV8",
+  "Ebonite", "Elite", "Genesis Bowling", "Hammer", "HI-SP", "Legends",
+  "Lord Field", "Motiv", "NIPPON Ebonite", "PBS (Professionsl Bowling System)",
+  "Phiten", "Pro Bowl", "Pyramid Bowling", "Radical", "Roto Grip",
+  "Round1 Gear", "Seismic", "Storm", "Superbowl", "Swag", "Track",
+  "Visionary", "X-ATK"
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('input');
   const [isInAppBrowser, setIsInAppBrowser] = useState(false);
@@ -65,14 +75,15 @@ export default function App() {
     selectedBallIds: ["", "", "", "", "", ""]
   });
 
-  const [newBall, setNewBall] = useState({ name: '', serialNo: '', validDate: '' });
+  const [newBall, setNewBall] = useState({ maker: '', name: '', serialNo: '', validDate: '' });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isExportMode, setIsExportMode] = useState(false);
   const [message, setMessage] = useState('');
 
+  // ブラウザ検知
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
-    const isInApp = /line|fbav|facebook|instagram|twitter|micromessenger/i.test(ua);
+    const isInApp = /line|fbav|facebook|instagram|twitter|twitter|micromessenger/i.test(ua);
     setIsInAppBrowser(isInApp);
   }, []);
 
@@ -95,7 +106,7 @@ export default function App() {
     e.preventDefault();
     if (!newBall.name) return;
     setBalls([...balls, { ...newBall, id: Date.now().toString() }]);
-    setNewBall({ name: '', serialNo: '', validDate: '' });
+    setNewBall({ maker: '', name: '', serialNo: '', validDate: '' });
   };
 
   const handleDeleteBall = (id) => {
@@ -123,8 +134,49 @@ export default function App() {
     );
   };
 
+  const renderDateTwoLines = (dateStr) => {
+    if(!dateStr) return null;
+    const [y, m, d] = dateStr.split('-');
+    return (
+      <div className="flex flex-col justify-center leading-tight py-0.5 w-full px-2">
+        <div className="mb-0.5 text-center">
+          <span className="gothic text-[13px]">{y}</span>
+          <span className="mincho mx-0.5 text-[10px]">年</span>
+        </div>
+        <div className="text-right">
+          <span className="gothic text-[13px]">{parseInt(m, 10)}</span>
+          <span className="mincho mx-0.5 text-[10px]">月</span>
+          <span className="gothic text-[13px]">{parseInt(d, 10)}</span>
+          <span className="mincho ml-0.5 text-[10px]">日</span>
+        </div>
+      </div>
+    );
+  };
+
+  // セル幅に収めるためのフォントサイズ自動調整関数
+  const getAutoFontSize = (text, baseSize, maxFullWidthChars) => {
+    if (!text) return `${baseSize}px`;
+    let w = 0;
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      // 半角英数字・記号は幅を狭く見積もる
+      if (code >= 0x0020 && code <= 0x007E) {
+        if (/[A-Z@]/.test(text[i])) w += 0.7;
+        else if (/[mvw]/.test(text[i])) w += 0.75;
+        else if (/[ijl1\.\,]/.test(text[i])) w += 0.35;
+        else w += 0.55;
+      } else {
+        w += 1; // 全角文字
+      }
+    }
+    if (w <= maxFullWidthChars) return `${baseSize}px`;
+    const scale = maxFullWidthChars / w;
+    return `${Math.max(baseSize * scale, 6)}px`; // 最小サイズを6pxに制限
+  };
+
   const executePdfAction = async (action = 'download') => {
     let printWindow = null;
+    
     if (action === 'print') {
       printWindow = window.open('', '_blank');
       if (printWindow) {
@@ -155,13 +207,19 @@ export default function App() {
           onclone: (clonedDoc) => {
             const clonedContent = clonedDoc.getElementById('pdf-content');
             const cells = clonedContent.querySelectorAll('.cell-content');
-            cells.forEach(cell => { cell.style.transform = 'translateY(-5.5px)'; });
+            cells.forEach(cell => {
+              cell.style.transform = 'translateY(-5.5px)'; 
+            });
             const spans = clonedContent.querySelectorAll('span');
             spans.forEach(span => {
-              if(!span.closest('.cell-content')){ span.style.transform = 'translateY(-4px)'; }
+              if(!span.closest('.cell-content')){
+                span.style.transform = 'translateY(-4px)';
+              }
             });
             const tournamentNameText = clonedContent.querySelector('.tournament-name-text');
-            if (tournamentNameText) { tournamentNameText.style.transform = 'translateY(-6px)'; }
+            if (tournamentNameText) {
+              tournamentNameText.style.transform = 'translateY(-6px)';
+            }
             const selects = clonedDoc.querySelectorAll('select');
             selects.forEach(select => {
               const text = select.options[select.selectedIndex].text;
@@ -169,6 +227,8 @@ export default function App() {
               const textNode = clonedDoc.createElement('div');
               textNode.innerText = (text === "（クリックして選択）" || text === "選択") ? "" : text;
               textNode.className = select.className;
+              // 縮小されたフォントサイズを引き継ぐ
+              textNode.style.cssText = select.style.cssText;
               textNode.style.display = 'inline-block';
               textNode.style.width = '100%';
               textNode.style.textAlign = 'center';
@@ -234,6 +294,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-100 text-gray-800 font-sans pb-20 print:pb-0 print:bg-white">
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
+
         .yellow-cell { background-color: ${isExportMode ? 'transparent' : '#fff2cc'} !important; }
         
         @media print {
@@ -244,26 +306,76 @@ export default function App() {
           .print-hide-placeholder { color: transparent !important; }
         }
         
-        .cell-content { display: inline-block; vertical-align: middle; width: 100%; box-sizing: border-box; line-height: 1.2 !important; text-align: center; padding: 0 !important; margin: 0 !important; }
-        .outer-border { border: 1px solid #000 !important; border-collapse: collapse !important; }
-        td, th { padding: 0 !important; vertical-align: middle !important; text-align: center; border: 0.8px solid #000 !important; }
-        table { border-collapse: collapse !important; }
+        .cell-content {
+          display: inline-block;
+          vertical-align: middle;
+          width: 100%;
+          box-sizing: border-box;
+          line-height: 1.2 !important;
+          text-align: center;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        .outer-border {
+          border: 1px solid #000 !important;
+          border-collapse: collapse !important;
+        }
+
+        td, th {
+          padding: 0 !important;
+          vertical-align: middle !important;
+          text-align: center;
+          border: 0.8px solid #000 !important;
+        }
+
+        table {
+          border-collapse: collapse !important;
+        }
+
         .mincho { font-family: "MS PMincho", "MS Mincho", "Hiragino Mincho Pro", serif; }
-        .gothic { font-family: "MS PGothic", "MS Gothic", "Hiragino Kaku Gothic ProN", sans-serif; }
+        .gothic { font-family: "Noto Sans JP", "MS PGothic", "MS Gothic", "Hiragino Kaku Gothic ProN", sans-serif; }
         .font-meiryo { font-family: "Meiryo", "メイリオ", sans-serif; }
         
-        .preview-select { appearance: none; -webkit-appearance: none; background: transparent; border: none; outline: none; width: 100%; height: 100%; cursor: pointer; text-align: center; text-align-last: center; font-weight: normal; padding: 0; margin: 0; }
+        .preview-select {
+          appearance: none;
+          -webkit-appearance: none;
+          background: transparent;
+          border: none;
+          outline: none;
+          width: 100%;
+          height: 100%;
+          cursor: pointer;
+          text-align: center;
+          text-align-last: center;
+          font-weight: normal;
+          padding: 0;
+          margin: 0;
+        }
         .preview-select:focus { outline: none; }
       `}</style>
 
+      {/* インアプリブラウザへの警告バナー */}
       {isInAppBrowser && (
         <div className="bg-orange-500 text-white p-3 text-sm font-bold flex items-center justify-between sticky top-0 z-50 shadow-lg print:hidden">
-          <div className="flex items-center"><AlertTriangle className="w-5 h-5 mr-2 shrink-0" /><span>PDF作成にはブラウザ（Safari/Chrome等）が必要です</span></div>
-          <button onClick={() => showMessage("メニューから「ブラウザで開く」を選択してください")} className="bg-white text-orange-500 px-3 py-1 rounded-full text-xs whitespace-nowrap ml-2 shadow-sm">やり方</button>
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2 shrink-0" />
+            <span>PDF作成にはブラウザ（Safari/Chrome等）が必要です</span>
+          </div>
+          <button 
+            onClick={() => showMessage("メニューから「ブラウザで開く」を選択してください")}
+            className="bg-white text-orange-500 px-3 py-1 rounded-full text-xs whitespace-nowrap ml-2 shadow-sm"
+          >
+            やり方
+          </button>
         </div>
       )}
 
-      {message && (<div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl animate-bounce text-sm">{message}</div>)}
+      {message && (
+        <div className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl animate-bounce text-sm">
+          {message}
+        </div>
+      )}
 
       <header className={`bg-[#1f4e79] text-white p-4 shadow-md print-hidden sticky ${isInAppBrowser ? 'top-[44px]' : 'top-0'} z-10 flex justify-center items-center`}>
         <h1 className="text-lg sm:text-xl font-bold mincho tracking-widest text-center">JBボール登録証</h1>
@@ -273,33 +385,80 @@ export default function App() {
         <div className={activeTab === 'input' ? 'block print-hidden' : 'hidden print-hidden'}>
           <div className="space-y-6">
             <section className="bg-white p-5 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center"><span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">1</span> 大会設定</h2>
+              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center">
+                <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">1</span> 大会設定
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2"><label className="block text-sm font-bold text-gray-700 mb-1">大会名</label><input type="text" name="eventName" className="w-full border-gray-300 rounded-lg p-2 border focus:ring-blue-500 bg-[#fff2cc] font-meiryo" value={eventData.eventName} onChange={handleEventChange} placeholder="第〇回〇〇〇〇〇大会" /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">右上のNo.</label><input type="text" name="submitNo" className="w-full border-gray-300 rounded-lg p-2 border focus:ring-blue-500 font-meiryo" value={eventData.submitNo} onChange={handleEventChange} /></div>
-                <div className="sm:col-span-3"><label className="block text-sm font-bold text-gray-700 mb-1">日付</label><input type="date" name="date" className="w-full sm:w-1/3 border-gray-300 rounded-lg p-2 border focus:ring-blue-500 bg-[#fff2cc] font-meiryo" value={eventData.date} onChange={handleEventChange} /></div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">大会名</label>
+                  <input type="text" name="eventName" className="w-full border-gray-300 rounded-lg p-2 border focus:ring-blue-500 bg-[#fff2cc] font-meiryo" value={eventData.eventName} onChange={handleEventChange} placeholder="第〇回〇〇〇〇〇大会" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">右上のNo.</label>
+                  <input type="text" name="submitNo" className="w-full border-gray-300 rounded-lg p-2 border focus:ring-blue-500 font-meiryo" value={eventData.submitNo} onChange={handleEventChange} />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">日付</label>
+                  <input type="date" name="date" className="w-full sm:w-1/3 border-gray-300 rounded-lg p-2 border focus:ring-blue-500 bg-[#fff2cc] font-meiryo" value={eventData.date} onChange={handleEventChange} />
+                </div>
               </div>
             </section>
 
             <section className="bg-white p-5 rounded-xl shadow-sm">
-              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center"><span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">2</span> 基本情報</h2>
+              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center">
+                <span className="bg-blue-100 text-blue-800 w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">2</span> 基本情報
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">ふりがな</label><input type="text" name="kana" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo" value={profile.kana} onChange={handleProfileChange} /></div>
                 <div><label className="block text-sm font-bold text-gray-700 mb-1">氏名</label><input type="text" name="name" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo" value={profile.name} onChange={handleProfileChange} /></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">利き手</label><select name="handedness" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo bg-white" value={profile.handedness} onChange={handleProfileChange}><option value="">選択</option><option value="右">右</option><option value="左">左</option></select></div>
-                <div><label className="block text-sm font-bold text-gray-700 mb-1">所属</label><select name="affiliation" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo bg-white" value={profile.affiliation} onChange={handleProfileChange}><option value="">選択</option>{PREFECTURES.map(pref => (<option key={pref} value={pref}>{pref}</option>))}</select></div>
-                <div className="sm:col-span-2"><label className="block text-sm font-bold text-gray-700 mb-1">JB No.</label><div className="flex items-center gap-2"><input type="text" name="jbNo1" className="w-16 border border-gray-300 rounded p-2 text-center" value={profile.jbNo1} onChange={handleProfileChange} maxLength="4" /><span>-</span><input type="text" name="jbNo2" className="w-16 border border-gray-300 rounded p-2 text-center" value={profile.jbNo2} onChange={handleProfileChange} maxLength="4" /><span>-</span><input type="text" name="jbNo3" className="w-24 border border-gray-300 rounded p-2 text-center" value={profile.jbNo3} onChange={handleProfileChange} maxLength="8" /></div></div>
-                <div className="sm:col-span-2 flex flex-wrap gap-6 mt-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100"><label className="flex items-center cursor-pointer select-none"><input type="checkbox" name="isSpecialMember" className="w-5 h-5 rounded border-gray-300 text-blue-600 mr-2" checked={profile.isSpecialMember} onChange={handleProfileChange} /><span className="text-sm font-bold text-gray-700">特別会員</span></label><label className="flex items-center cursor-pointer select-none"><input type="checkbox" name="isOver600" className="w-5 h-5 rounded border-gray-300 text-blue-600 mr-2" checked={profile.isOver600} onChange={handleProfileChange} /><span className="text-sm font-bold text-gray-700">公認ゲーム600ゲーム以上</span></label></div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">利き手</label>
+                  <select name="handedness" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo bg-white" value={profile.handedness} onChange={handleProfileChange}>
+                    <option value="">選択</option><option value="右">右</option><option value="左">左</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">所属</label>
+                  <select name="affiliation" className="w-full border-gray-300 rounded-lg p-2 border font-meiryo bg-white" value={profile.affiliation} onChange={handleProfileChange}>
+                    <option value="">選択</option>
+                    {PREFECTURES.map(pref => (
+                      <option key={pref} value={pref}>{pref}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">JB No.</label>
+                  <div className="flex items-center gap-2">
+                    <input type="text" name="jbNo1" className="w-16 border border-gray-300 rounded p-2 text-center" value={profile.jbNo1} onChange={handleProfileChange} maxLength="4" /><span>-</span>
+                    <input type="text" name="jbNo2" className="w-16 border border-gray-300 rounded p-2 text-center" value={profile.jbNo2} onChange={handleProfileChange} maxLength="4" /><span>-</span>
+                    <input type="text" name="jbNo3" className="w-24 border border-gray-300 rounded p-2 text-center" value={profile.jbNo3} onChange={handleProfileChange} maxLength="8" />
+                  </div>
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap gap-6 mt-2 p-3 bg-blue-50/50 rounded-lg border border-blue-100">
+                  <label className="flex items-center cursor-pointer select-none"><input type="checkbox" name="isSpecialMember" className="w-5 h-5 rounded border-gray-300 text-blue-600 mr-2" checked={profile.isSpecialMember} onChange={handleProfileChange} /><span className="text-sm font-bold text-gray-700">特別会員</span></label>
+                  <label className="flex items-center cursor-pointer select-none"><input type="checkbox" name="isOver600" className="w-5 h-5 rounded border-gray-300 text-blue-600 mr-2" checked={profile.isOver600} onChange={handleProfileChange} /><span className="text-sm font-bold text-gray-700">公認ゲーム600ゲーム以上</span></label>
+                </div>
               </div>
             </section>
 
             <section className="bg-white p-5 rounded-xl shadow-sm border-l-4 border-[#1f4e79]">
-              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center text-[#1f4e79]"><span className="bg-[#1f4e79] text-white w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">3</span> 登録ボールリスト</h2>
-              <form onSubmit={handleAddBall} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 bg-gray-50 p-4 rounded-lg border">
+              <h2 className="text-lg font-bold border-b pb-2 mb-4 flex items-center text-[#1f4e79]">
+                <span className="bg-[#1f4e79] text-white w-6 h-6 rounded-full flex items-center justify-center mr-2 text-sm">3</span> 登録ボールリスト
+              </h2>
+              <form onSubmit={handleAddBall} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6 bg-gray-50 p-4 rounded-lg border">
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-0.5">メーカー名</label>
+                  <input list="maker-list" type="text" className="w-full border rounded p-2 font-meiryo" value={newBall.maker} onChange={e => setNewBall({...newBall, maker: e.target.value})} placeholder="メーカー名" />
+                  <datalist id="maker-list">
+                    {MAKERS.map(m => <option key={m} value={m} />)}
+                  </datalist>
+                </div>
                 <div><label className="block text-[10px] text-gray-500 mb-0.5">ボール名</label><input required type="text" className="w-full border rounded p-2 font-meiryo" value={newBall.name} onChange={e => setNewBall({...newBall, name: e.target.value})} placeholder="ボール名" /></div>
                 <div><label className="block text-[10px] text-gray-500 mb-0.5">ボールNo.</label><input type="text" className="w-full border rounded p-2 font-meiryo" value={newBall.serialNo} onChange={e => setNewBall({...newBall, serialNo: e.target.value})} placeholder="ボールNo." /></div>
                 <div><label className="block text-[10px] text-gray-500 mb-0.5">有効期限開始日</label><input type="date" className="w-full border rounded p-2" value={newBall.validDate} onChange={e => setNewBall({...newBall, validDate: e.target.value})} /></div>
-                <button type="submit" className="sm:col-span-3 bg-[#1f4e79] text-white font-bold py-2 rounded flex items-center justify-center hover:bg-blue-900 transition-colors"><Plus className="w-4 h-4 mr-1" /> ボールをリストに追加</button>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  <button type="submit" className="w-full bg-[#1f4e79] text-white font-bold py-2 rounded flex items-center justify-center hover:bg-blue-900 transition-colors"><Plus className="w-4 h-4 mr-1" /> ボールをリストに追加</button>
+                </div>
               </form>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {balls.map(ball => {
@@ -312,7 +471,15 @@ export default function App() {
                   }
                   return (
                     <div key={ball.id} className="flex items-center justify-between p-2 border rounded bg-white">
-                      <div className="flex-grow"><div className="font-bold">{ball.name}</div><div className="text-xs text-gray-500 mb-1">ボールNo.: {ball.serialNo}</div><div className="flex items-center text-xs"><span className="text-gray-500 mr-2">有効期限開始日:</span><input type="date" value={ball.validDate} onChange={(e) => handleUpdateBallDate(ball.id, e.target.value)} className="border rounded px-1 py-0.5 mr-2 bg-gray-50" />{isExpired && <span className="text-red-500 font-bold">期限切れ</span>}</div></div>
+                      <div className="flex-grow">
+                        <div className="font-bold">{ball.maker ? `${ball.maker} - ` : ''}{ball.name}</div>
+                        <div className="text-xs text-gray-500 mb-1">ボールNo.: {ball.serialNo}</div>
+                        <div className="flex items-center text-xs">
+                          <span className="text-gray-500 mr-2">有効期限開始日:</span>
+                          <input type="date" value={ball.validDate} onChange={(e) => handleUpdateBallDate(ball.id, e.target.value)} className="border rounded px-1 py-0.5 mr-2 bg-gray-50" />
+                          {isExpired && <span className="text-red-500 font-bold">期限切れ</span>}
+                        </div>
+                      </div>
                       <button onClick={() => handleDeleteBall(ball.id)} className="text-red-500 p-2 hover:bg-red-50 rounded shrink-0 transition-colors"><Trash2 className="w-5 h-5" /></button>
                     </div>
                   );
@@ -378,19 +545,31 @@ export default function App() {
                 </div>
               </div>
 
-              <table className="outer-border w-full text-[10px] mb-4 table-fixed">
-                <colgroup><col className="w-[3%]"/><col className="w-[35%]"/><col className="w-[26%]"/><col className="w-[26%]"/><col className="w-[10%]"/></colgroup>
-                <thead><tr className="h-[20px] text-[10px]"><th className="p-0 font-normal"></th><th className="p-0 font-normal"><div className="cell-content">ボール名</div></th><th className="p-0 font-normal"><div className="cell-content">ボール No.</div></th><th className="p-0 font-normal"><div className="cell-content">有効期限開始日</div></th><th className="p-0 font-normal"><div className="cell-content">受付確認</div></th></tr></thead>
+              <table className="outer-border w-full text-[10px] mb-1 table-fixed">
+                <colgroup><col className="w-[4%]"/><col className="w-[20%]"/><col className="w-[30%]"/><col className="w-[22%]"/><col className="w-[12%]"/><col className="w-[6%]"/><col className="w-[6%]"/></colgroup>
+                <thead>
+                  <tr className="h-[20px] text-[10px]">
+                    <th className="p-0 font-normal"></th>
+                    <th className="p-0 font-normal"><div className="cell-content">メーカー名</div></th>
+                    <th className="p-0 font-normal"><div className="cell-content">ボール名</div></th>
+                    <th className="p-0 font-normal"><div className="cell-content">ボール No.</div></th>
+                    <th className="p-0 font-normal"><div className="cell-content leading-tight whitespace-nowrap tracking-tight">有効期限開始日</div></th>
+                    <th className="p-0 font-normal"><div className="cell-content text-[8px] leading-tight">選手確認</div></th>
+                    <th className="p-0 font-normal"><div className="cell-content text-[8px] leading-tight">受付確認</div></th>
+                  </tr>
+                </thead>
                 <tbody>
                   {[0, 1, 2, 3, 4, 5].map((index) => {
                     const selectedId = eventData.selectedBallIds[index];
                     const ball = balls.find(b => b.id === selectedId);
                     return (
-                      <tr key={index} className="h-9">
+                      <tr key={index} className="h-[36px]">
                         <td className="p-0"><div className="cell-content text-[12px]">{index + 1}</div></td>
-                        <td className="p-0 yellow-cell relative">{isExportMode ? (<div className="cell-content gothic text-[15px] text-black h-full whitespace-nowrap">{ball ? ball.name : ''}</div>) : (<select className={`preview-select w-full h-full gothic text-[15px] ${!selectedId ? 'text-gray-400 print-hide-placeholder' : 'text-black'}`} value={selectedId || ""} onChange={(e) => {const n=[...eventData.selectedBallIds];n[index]=e.target.value;setEventData({...eventData,selectedBallIds:n});}}><option value="">（クリックして選択）</option>{balls.map(b => <option key={b.id} value={b.id} className="text-black gothic">{b.name}</option>)}</select>)}</td>
-                        <td className="p-0"><div className="cell-content text-[15px] gothic whitespace-nowrap">{ball?.serialNo || ""}</div></td>
-                        <td className="p-0"><div className="cell-content whitespace-nowrap">{renderDate(ball?.validDate)}</div></td>
+                        <td className="p-0"><div className="cell-content gothic whitespace-nowrap" style={{ fontSize: getAutoFontSize(ball?.maker || "", 13, 11) }}>{ball?.maker || ""}</div></td>
+                        <td className="p-0 yellow-cell relative">{isExportMode ? (<div className="cell-content gothic text-black h-full whitespace-nowrap flex items-center justify-center" style={{ fontSize: getAutoFontSize(ball ? ball.name : '', 14, 13) }}>{ball ? ball.name : ''}</div>) : (<select className={`preview-select w-full h-full gothic ${!selectedId ? 'text-gray-400 print-hide-placeholder' : 'text-black'}`} value={selectedId || ""} style={{ fontSize: getAutoFontSize(ball ? ball.name : '', 14, 13) }} onChange={(e) => {const n=[...eventData.selectedBallIds];n[index]=e.target.value;setEventData({...eventData,selectedBallIds:n});}}><option value="">（クリックして選択）</option>{balls.map(b => <option key={b.id} value={b.id} className="text-black gothic">{b.name}</option>)}</select>)}</td>
+                        <td className="p-0"><div className="cell-content gothic whitespace-nowrap" style={{ fontSize: getAutoFontSize(ball?.serialNo || "", 14, 11) }}>{ball?.serialNo || ""}</div></td>
+                        <td className="p-0">{renderDateTwoLines(ball?.validDate)}</td>
+                        <td className="p-0"><div className="cell-content text-[16px] gothic font-bold">{selectedId ? '☑' : '□'}</div></td>
                         <td className="p-0"></td>
                       </tr>
                     );
@@ -398,7 +577,18 @@ export default function App() {
                 </tbody>
               </table>
 
-              <div className="flex text-[8px] mt-2 mb-12 w-full items-stretch h-[25px]">
+              <div className="flex text-[11px] mb-2 mt-0.5 w-full items-end h-[20px]">
+                <div className="flex-grow text-right relative z-10 bg-white leading-none pr-1">
+                  選手自身で非適合ボールリスト未掲載であることを確認し、☑を付けてください。
+                </div>
+                <div className="w-[6%] relative h-full">
+                  <div className="absolute w-[200px] h-[8px] border-b-[1.5px] border-r-[1.5px] border-black right-1/2 bottom-[2px]"></div>
+                  <div className="absolute w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-black right-[calc(50%-4px)] bottom-[10px]"></div>
+                </div>
+                <div className="w-[6%]"></div>
+              </div>
+
+              <div className="flex text-[8px] mt-1 mb-12 w-full items-stretch h-[25px]">
                 <div className="w-[3%]"></div>
                 <div className="w-[20%]"><table className="outer-border w-full h-full table-fixed"><tbody><tr><td className="p-0 w-1/2 bg-gray-50/10"><div className="cell-content text-[8px]">合計個数</div></td><td className="p-0 w-1/2"><div className="cell-content text-[11px] gothic">{selectedCount || '0'}</div></td></tr></tbody></table></div>
                 <div className="w-[15%]"></div>
