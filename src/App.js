@@ -89,7 +89,7 @@ export default function App() {
 
     // 画面幅が小さい場合（スマホなど）、初期表示を縮小して全体を見えやすくする
     if (window.innerWidth < 800) {
-      setZoomLevel(Math.max((window.innerWidth - 32) / 800, 0.3));
+      setZoomLevel(0.5);
     }
   }, []);
 
@@ -342,7 +342,7 @@ export default function App() {
           padding: 0 !important;
           vertical-align: middle !important;
           text-align: center;
-          border: 0.8px solid #000 !important;
+          border: 1px solid #000 !important;
         }
 
         table {
@@ -477,7 +477,7 @@ export default function App() {
                 </div>
               </form>
               {/* 高さ制限を解除し、追加したボールがすべて下に表示されるように修正 */}
-              <div className="space-y-2">
+              <div className="space-y-2 h-auto overflow-visible">
                 {balls.map(ball => {
                   let isExpired = false;
                   if (ball.validDate) {
@@ -555,8 +555,8 @@ export default function App() {
                     
                     <div className="mb-2">
                       <div className="flex justify-end mb-1"><div className="flex items-end text-[11px] w-24 justify-between px-1 border-b border-black pb-0.5"><span>No.</span><span className="text-center gothic flex-grow h-[15px] flex items-center justify-center">{eventData.submitNo}</span></div></div>
-                      <div className="flex items-end mr-[2rem] border-b border-black"><span className="text-[18px] mr-1 shrink-0 mb-0.5">大会名：</span><div className="flex-grow flex flex-col justify-end relative h-[30px]"><div className="tournament-name-text text-center gothic text-[22px] whitespace-nowrap pb-1 leading-none h-full flex items-center justify-center">{eventData.eventName || '\u00A0'}</div></div></div>
-                      <div className="flex justify-end mt-1 pr-[1rem]"><span className="text-[13px]">{renderDate(eventData.date)}</span></div>
+                      <div className="flex items-end border-b border-black"><span className="text-[18px] mr-1 shrink-0 mb-0.5">大会名：</span><div className="flex-grow flex flex-col justify-end relative h-[30px]"><div className="tournament-name-text text-center gothic text-[22px] whitespace-nowrap pb-1 leading-none h-full flex items-center justify-center">{eventData.eventName || '\u00A0'}</div></div></div>
+                      <div className="flex justify-end mt-1"><span className="text-[13px]">{renderDate(eventData.date)}</span></div>
                     </div>
 
                     <div className="flex flex-col items-center justify-center mb-1 mt-1"><h1 className="text-[24px] text-black font-bold whitespace-nowrap"><span className="border-b border-black pb-1 inline-block tracking-[0.4em]" style={{ marginRight: '-0.4em' }}>使用ボール登録証</span></h1></div>
