@@ -306,6 +306,12 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap');
 
+        /* スマホ等で文字が勝手に拡大されてレイアウトが崩れるのを防ぐ */
+        html, body {
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
         .yellow-cell { background-color: ${isExportMode ? 'transparent' : '#fff2cc'} !important; }
         
         @media print {
@@ -470,7 +476,8 @@ export default function App() {
                   <button type="submit" className="w-full bg-[#1f4e79] text-white font-bold py-2 rounded flex items-center justify-center hover:bg-blue-900 transition-colors"><Plus className="w-4 h-4 mr-1" /> ボールをリストに追加</button>
                 </div>
               </form>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
+              {/* 高さ制限を解除し、追加したボールがすべて下に表示されるように修正 */}
+              <div className="space-y-2">
                 {balls.map(ball => {
                   let isExpired = false;
                   if (ball.validDate) {
